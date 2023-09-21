@@ -50,18 +50,11 @@ func (q *Queries) DeleteAccount(ctx context.Context, id int64) error {
 
 const getAccount = `-- name: GetAccount :one
 SELECT id, owner, balance, currency, created_at FROM accounts
-ORDER BY id
-LIMIT $1
-OFFSET $2
+WHERE id = $1 LIMIT 1
 `
 
-type GetAccountParams struct {
-	Limit  int32 `json:"limit"`
-	Offset int32 `json:"offset"`
-}
-
-func (q *Queries) GetAccount(ctx context.Context, arg GetAccountParams) (Account, error) {
-	row := q.db.QueryRowContext(ctx, getAccount, arg.Limit, arg.Offset)
+func (q *Queries) GetAccount(ctx context.Context, id int64) (Account, error) {
+	row := q.db.QueryRowContext(ctx, getAccount, id)
 	var i Account
 	err := row.Scan(
 		&i.ID,
