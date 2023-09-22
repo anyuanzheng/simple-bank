@@ -8,7 +8,6 @@ import (
 
 type Store struct {
 	db *sql.DB
-	// 封装所有Queries的功能，同时持有db instance，以实现transaction
 	*Queries
 }
 
@@ -84,20 +83,29 @@ func (store *Store) TransferTx(ctx context.Context, arg TransferTxParams) (Trans
 			return err
 		}
 
-		// update from account
-		transferResult.FromAccount, err = q.AddAccountBalance(ctx, AddAccountBalanceParams{ ID: arg.FromAccountID, Amount: -arg.Amount})
-		if err != nil {
-			return err
+		if arg.FromAccountID < arg.ToAccountID {
+			transferResult.FromAccount, transferResult.ToAccount, err = addMoney(ctx, q, arg.FromAccountID, -arg.Amount, arg.ToAccountID, arg.Amount)
+			if err != nil {
+				return err
+			}
+		} else {
+			transferResult.ToAccount, transferResult.FromAccount, err = addMoney(ctx, q, arg.ToAccountID, arg.Amount, arg.FromAccountID, -arg.Amount)
+			if err != nil {
+				return err
+			}
 		}
-		
-		// update to account
-		transferResult.ToAccount, err = q.AddAccountBalance(ctx, AddAccountBalanceParams{ ID: arg.ToAccountID, Amount: arg.Amount})
-		if err != nil {
-			return err
-		}	
 
 		return nil
 	})
 
 	return transferResult, err
+}
+
+func addMoney(ctx context.Context, q *Queries, account1Id int64, money1 int64, account2Id int64, money2 int64) (account1 Account, account2 Account, err error) {
+	account1, err = q.AddAccountBalance(ctx, AddAccountBalanceParams{ ID: account1Id, Amount: money1 })
+	if err != nil {
+		return
+	}
+	account2, err = q.AddAccountBalance(ctx, AddAccountBalanceParams{ ID: account2Id, Amount: money2 })
+	return
 }
