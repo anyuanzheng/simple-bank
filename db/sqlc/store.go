@@ -19,6 +19,8 @@ func NewStore(db *sql.DB) *Store {
 	}
 }
 
+var txKey = struct{}{}
+
 func (store *Store) execTx(ctx context.Context, fn func(*Queries) error) error {
 	tx, err := store.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -81,6 +83,18 @@ func (store *Store) TransferTx(ctx context.Context, arg TransferTxParams) (Trans
 		if err != nil {
 			return err
 		}
+
+		// update from account
+		transferResult.FromAccount, err = q.AddAccountBalance(ctx, AddAccountBalanceParams{ ID: arg.FromAccountID, Amount: -arg.Amount})
+		if err != nil {
+			return err
+		}
+		
+		// update to account
+		transferResult.ToAccount, err = q.AddAccountBalance(ctx, AddAccountBalanceParams{ ID: arg.ToAccountID, Amount: arg.Amount})
+		if err != nil {
+			return err
+		}	
 
 		return nil
 	})

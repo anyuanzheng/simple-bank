@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -25,15 +26,16 @@ func TestTransferTx(t *testing.T) {
 	amount := int64(10)	
 
 	for i := 0; i < n; i += 1 {
-		go func ()  {
-			result, err := store.TransferTx(context.Background(), TransferTxParams{
+		go func (i int)  {
+			ctx := context.WithValue(context.Background(), txKey, fmt.Sprintf("tx%d", i+1))
+			result, err := store.TransferTx(ctx, TransferTxParams{
 				FromAccountID: account1.ID,
 				ToAccountID: account2.ID,
 				Amount: amount,
 			})
 			errs <- err
 			results <- result
-		}()
+		}(i)
 	}
 
 	for i := 0; i < n; i += 1 {
@@ -65,7 +67,7 @@ func TestTransferTx(t *testing.T) {
 		diff1 := account1.Balance - fromAccount.Balance
 		diff2 := toAccount.Balance - account2.Balance
 		require.Equal(t, diff1, diff2)
-		require.Equal(t, diff1 / amount, i + 1)
+		require.Equal(t, diff1 / amount, int64(i) + 1)
 	}
 
 	// get newest accounts and assert balance change
