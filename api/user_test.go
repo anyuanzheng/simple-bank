@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -15,7 +16,37 @@ import (
 	db "github.com/iamzay/simplebank/db/sqlc"
 	"github.com/iamzay/simplebank/util"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/crypto/bcrypt"
 )
+
+type eqCreateUserParamsMatcher struct {
+	createUserParams db.CreateUserParams
+	password string
+}
+
+func (m eqCreateUserParamsMatcher) Matches(x interface{}) bool {
+	params, ok := x.(db.CreateUserParams)
+	if !ok {
+		return false
+	}
+	err := bcrypt.CompareHashAndPassword([]byte(params.HashedPassword), []byte(m.password))
+	if err != nil {
+		return false
+	}
+	m.createUserParams.HashedPassword = params.HashedPassword
+	return reflect.DeepEqual(m.createUserParams, params)
+}
+
+func (m eqCreateUserParamsMatcher) String() string {
+	return ""
+}
+
+func EqCreateUserParamsMatcher(params db.CreateUserParams, password string) gomock.Matcher {
+	return eqCreateUserParamsMatcher{
+		createUserParams: params,
+		password: password,
+	}
+}
 
 func TestCreateUserAPI(t *testing.T) {
 	user, password := randomUser(t)
@@ -36,7 +67,11 @@ func TestCreateUserAPI(t *testing.T) {
 			},
 			buildStubs: func(store *mockdb.MockStore) {
 				store.EXPECT().
-					CreateUser(gomock.Any(), gomock.Any()).
+					CreateUser(gomock.Any(), EqCreateUserParamsMatcher(db.CreateUserParams{
+						Username: user.Username,
+						Email: user.Email,
+						FullName: user.FullName,
+					}, password)).
 					Times(1).
 					Return(user, nil)
 			},
