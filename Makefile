@@ -22,4 +22,7 @@ test:
 server:
 	go run main.go
 
-.PHONY: postgres createdb dropdb migratedown migrateup sqlc server
+mock:
+	 ~/go/bin/mockgen -package mockdb -destination db/mock/store.go github.com/iamzay/simplebank/db/sqlc Store
+
+.PHONY: postgres createdb dropdb migratedown migrateup sqlc server mock
