@@ -2,11 +2,13 @@ package api
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	db "github.com/iamzay/simplebank/db/sqlc"
+	"github.com/iamzay/simplebank/token"
 )
 
 type createTransferRequest struct {
@@ -23,10 +25,18 @@ func (server *Server) createTransfer(ctx *gin.Context) {
 		return
 	}
 
-	if !server.isAccountValid(ctx, req.FromAccountId, req.Currency) {
+	fromAccount, valid := server.isAccountValid(ctx, req.FromAccountId, req.Currency)
+	if !valid {
 		return
 	}
-	if !server.isAccountValid(ctx, req.ToAccountId, req.Currency) {
+	_, valid = server.isAccountValid(ctx, req.ToAccountId, req.Currency)
+	if !valid {
+		return
+	}
+	token := ctx.MustGet(AuthorizationTokenCtxKey).(*token.Payload)
+	if fromAccount.Owner != token.Username {
+		err := errors.New("can't transfer from others account")
+		ctx.JSON(http.StatusUnauthorized, errorResponse(err))
 		return
 	}
 
@@ -42,7 +52,7 @@ func (server *Server) createTransfer(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, result)
 }
 
-func (server *Server) isAccountValid(ctx *gin.Context, accountId int64, currency string) bool {
+func (server *Server) isAccountValid(ctx *gin.Context, accountId int64, currency string) (db.Account, bool) {
 	account, err := server.store.GetAccount(ctx, accountId)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -50,13 +60,13 @@ func (server *Server) isAccountValid(ctx *gin.Context, accountId int64, currency
 		} else {
 			ctx.JSON(http.StatusInternalServerError, errorResponse(err))
 		}
-		return false
+		return db.Account{}, false
 	}
 
 	if account.Currency != currency {
 		err = fmt.Errorf("account [%d] currency not match: %s %s", accountId, account.Currency, currency)
 		ctx.JSON(http.StatusBadRequest, errorResponse(err))
-		return false
+		return db.Account{}, false
 	}
-	return true
+	return account, true
 }
