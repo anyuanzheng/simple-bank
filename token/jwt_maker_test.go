@@ -14,7 +14,7 @@ func TestJWTMaker(t *testing.T) {
 	jwtMaker, err := NewJWTMaker(secretKey)
 	require.NoError(t, err)
 
-	token, err := jwtMaker.CreateToken(username, time.Minute)
+	token, _, err := jwtMaker.CreateToken(username, time.Minute)
 	require.NoError(t, err)
 	payload, err := jwtMaker.VerifyToken(token)
 	require.NoError(t, err)
@@ -29,7 +29,7 @@ func TestInvalidToken(t *testing.T) {
 	jwtMaker, err := NewJWTMaker(secretKey)
 	require.NoError(t, err)	
 
-	token, err := jwtMaker.CreateToken(username, -time.Minute)	
+	token, _, err := jwtMaker.CreateToken(username, -time.Minute)	
 	require.NoError(t, err)	
 	payload, err := jwtMaker.VerifyToken(token)
 	require.Error(t, err)
