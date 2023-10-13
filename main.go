@@ -81,8 +81,10 @@ func runGatewayServer(config util.Config, store db.Store) {
 		log.Fatal("cannot register handler server:", err)
 	}
 
+	fs := http.FileServer(http.Dir("./doc/swagger"))
 	mux := http.NewServeMux()
 	mux.Handle("/", grpcMux)
+	mux.Handle("/swagger/", http.StripPrefix("/swagger/", fs))
 
 	listener, err := net.Listen("tcp", config.HTTPServerAddress)
 	if err != nil {
